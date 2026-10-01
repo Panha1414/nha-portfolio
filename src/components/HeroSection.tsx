@@ -129,19 +129,42 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                   <span>Prey Veng & Phnom Penh</span>
                   <span aria-hidden="true">·</span>
                   <span className="text-slate-500">CS Department · NCHSUK</span>
+
+                  {/* Immediate 1-Click Real Photo Selector for Sopha Panha */}
+                  <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-400/40 transition-all font-sans text-xs font-semibold shadow-sm">
+                    <Camera className="w-3.5 h-3.5 text-cyan-300" />
+                    <span>{lang === 'km' ? '📷 ដាក់រូបថតពិត (ជ្រើសរើស 10076_SOPHAPANHA.jpg)' : '📷 Set Real Photo (10076_SOPHAPANHA.jpg)'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            const res = event.target?.result as string;
+                            if (res) {
+                              try {
+                                localStorage.setItem('panha_real_photo', res);
+                                localStorage.setItem('sopha_owner_auth', 'verified_owner_panha_10076');
+                                window.location.reload();
+                              } catch {}
+                            }
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                      className="hidden"
+                    />
+                  </label>
                   
-                  {/* Discreet Owner Trigger / Active Controls */}
-                  {isOwner ? (
-                    <span className="text-amber-400 font-sans text-xs">
-                      {lang === 'km' ? 'ចុចលើរូបដើម្បីផ្លាស់ប្តូររូបថតរបស់អ្នក' : 'Click portrait to replace photo'}
-                    </span>
-                  ) : (
+                  {isOwner && (
                     <button
                       type="button"
-                      onClick={onOpenOwnerLogin}
-                      className="text-slate-600 hover:text-cyan-400 transition-colors text-[11px] font-sans"
+                      onClick={onLogoutOwner}
+                      className="text-amber-400 hover:underline font-mono text-[10px]"
                     >
-                      {lang === 'km' ? 'ចូលជាម្ចាស់ (Owner Login)' : 'Owner Login'}
+                      [Lock]
                     </button>
                   )}
                 </div>
