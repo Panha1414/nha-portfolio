@@ -17,30 +17,16 @@ import { InteractiveMapModal } from './components/simulators/InteractiveMapModal
 import { EcommerceModal } from './components/simulators/EcommerceModal';
 import { MoonlightDesignModal } from './components/simulators/MoonlightDesignModal';
 import { ResumeModal } from './components/ResumeModal';
-import { OwnerLoginModal } from './components/OwnerLoginModal';
-import { checkIsOwner, logoutOwner } from './utils/ownerAuth';
 
 export default function App() {
   const [lang, setLang] = useState<Language>('km');
   const [activeModal, setActiveModal] = useState<string | null>(null);
-  const [isOwner, setIsOwner] = useState<boolean>(false);
-  const [showOwnerLogin, setShowOwnerLogin] = useState<boolean>(false);
 
-  // Initialize owner status from local storage
-  useEffect(() => {
-    setIsOwner(checkIsOwner());
-  }, []);
-
-  // Keyboard shortcut to open Owner Mode (Ctrl+Shift+O or Cmd+Shift+O)
+  // Close modals on Escape key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setActiveModal(null);
-        setShowOwnerLogin(false);
-      }
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'O' || e.key === 'o')) {
-        e.preventDefault();
-        setShowOwnerLogin(true);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -49,11 +35,6 @@ export default function App() {
 
   const handleSelectProject = (projectId: string) => {
     setActiveModal(projectId);
-  };
-
-  const handleLogoutOwner = () => {
-    logoutOwner();
-    setIsOwner(false);
   };
 
   const scrollToProjects = () => {
@@ -79,9 +60,6 @@ export default function App() {
           lang={lang}
           onExploreProjects={scrollToProjects}
           onOpenBotDemo={() => setActiveModal('telegram-bots')}
-          isOwner={isOwner}
-          onOpenOwnerLogin={() => setShowOwnerLogin(true)}
-          onLogoutOwner={handleLogoutOwner}
         />
 
         {/* Section 2: Selected Projects */}
@@ -101,21 +79,7 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <Footer
-        lang={lang}
-        isOwner={isOwner}
-        onOpenOwnerLogin={() => setShowOwnerLogin(true)}
-        onLogoutOwner={handleLogoutOwner}
-      />
-
-      {/* Owner Security Login Modal */}
-      {showOwnerLogin && (
-        <OwnerLoginModal
-          lang={lang}
-          onClose={() => setShowOwnerLogin(false)}
-          onSuccess={() => setIsOwner(true)}
-        />
-      )}
+      <Footer lang={lang} />
 
       {/* Modals & Interactive Simulators */}
       {activeModal === 'telegram-bots' && (
@@ -150,7 +114,6 @@ export default function App() {
         <ResumeModal
           lang={lang}
           onClose={() => setActiveModal(null)}
-          isOwner={isOwner}
         />
       )}
     </div>

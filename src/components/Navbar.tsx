@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Language } from '../types/portfolio';
 import { PERSONAL_INFO } from '../data/portfolioData';
 import { Globe, Menu, X, ArrowUpRight, FileText } from 'lucide-react';
+import { ProfileAvatar } from './ProfileAvatar';
 
 interface NavbarProps {
   lang: Language;
@@ -31,18 +32,7 @@ export const Navbar: React.FC<NavbarProps> = ({ lang, setLang, onOpenResume }) =
           href="#" 
           className="group flex items-center gap-2.5 text-base sm:text-lg font-bold tracking-tight text-white transition-colors"
         >
-          <div className="w-8 h-8 rounded-lg overflow-hidden border border-cyan-400/50 bg-[#0066d6] shrink-0">
-            <img
-              src="/10076_SOPHAPANHA.jpg"
-              alt="Sopha Panha"
-              referrerPolicy="no-referrer"
-              className="w-full h-full object-cover object-top"
-              onError={(e) => {
-                // If direct jpg fails, replace with SVG data URI
-                (e.currentTarget as HTMLImageElement).src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%230066d6'/%3E%3Ccircle cx='50' cy='38' r='18' fill='%23e5b595'/%3E%3Cpath d='M30,30 C30,16 70,16 70,30 C64,24 36,24 30,30 Z' fill='%231a1615'/%3E%3Cpath d='M20,95 L80,95 L72,62 L28,62 Z' fill='%230f172a'/%3E%3Cpolygon points='40,62 60,62 50,78' fill='white'/%3E%3Cpolygon points='47,68 53,68 51,90 49,90' fill='%231e3a8a'/%3E%3C/svg%3E";
-              }}
-            />
-          </div>
+          <ProfileAvatar size="sm" showBadge={false} interactive={false} className="shrink-0" />
           <div className="flex flex-col">
             <span className="font-semibold text-slate-100 group-hover:text-cyan-400 transition-colors leading-tight">
               {lang === 'km' ? PERSONAL_INFO.nameKm : PERSONAL_INFO.nameEn}

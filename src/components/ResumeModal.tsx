@@ -7,10 +7,9 @@ import { ProfileAvatar } from './ProfileAvatar';
 interface ResumeModalProps {
   lang: Language;
   onClose: () => void;
-  isOwner?: boolean;
 }
 
-export const ResumeModal: React.FC<ResumeModalProps> = ({ lang, onClose, isOwner = false }) => {
+export const ResumeModal: React.FC<ResumeModalProps> = ({ lang, onClose }) => {
   const handlePrint = () => {
     window.print();
   };
@@ -51,7 +50,7 @@ export const ResumeModal: React.FC<ResumeModalProps> = ({ lang, onClose, isOwner
           {/* Identity Header */}
           <div className="border-b border-white/10 pb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
             <div className="flex items-center gap-4">
-              <ProfileAvatar size="md" lang={lang} isOwner={isOwner} className="shrink-0" />
+              <ProfileAvatar size="md" lang={lang} className="shrink-0" />
               <div>
                 <h1 className="text-2xl sm:text-3xl font-bold text-white">
                   {lang === 'km' ? PERSONAL_INFO.nameKm : PERSONAL_INFO.nameEn}
