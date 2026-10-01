@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ZoomIn, UserCheck, ShieldCheck } from 'lucide-react';
 import { Language } from '../types/portfolio';
 import { PERSONAL_INFO } from '../data/portfolioData';
 import { SophaPanhaPortrait } from './SophaPanhaPortrait';
+import { compressImageFile, savePhoto } from '../utils/photoStorage';
 
 interface ProfileAvatarProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
@@ -19,9 +20,10 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
   interactive = true,
   lang = 'km',
 }) => {
-  const [photoSrc, setPhotoSrc] = useState<string | null>(null);
+  const [photoSrc, setPhotoSrc] = useState<string>('/10076_SOPHAPANHA.jpg');
   const [imgLoadError, setImgLoadError] = useState<boolean>(false);
   const [modalOpen, setModalOpen] = useState<boolean>(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     // Check if photo exists in localStorage
@@ -29,13 +31,50 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
       const stored = localStorage.getItem('panha_real_photo');
       if (stored) {
         setPhotoSrc(stored);
+        setImgLoadError(false);
         return;
       }
     } catch {}
 
-    // Otherwise attempt default file path
     setPhotoSrc('/10076_SOPHAPANHA.jpg');
   }, []);
+
+  // Listen for broadcasted photo updates
+  useEffect(() => {
+    const handleUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      if (customEvent.detail) {
+        setPhotoSrc(customEvent.detail);
+        setImgLoadError(false);
+      }
+    };
+    window.addEventListener('sopha-photo-updated', handleUpdate);
+    return () => window.removeEventListener('sopha-photo-updated', handleUpdate);
+  }, []);
+
+  const handleAvatarClick = () => {
+    if (!interactive) return;
+    if (imgLoadError) {
+      // If photo file hasn't been placed on server yet, clicking allows picking the file directly
+      fileInputRef.current?.click();
+    } else {
+      setModalOpen(true);
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        const compressed = await compressImageFile(file, 800, 0.85);
+        await savePhoto(compressed);
+        setPhotoSrc(compressed);
+        setImgLoadError(false);
+      } catch (err) {
+        console.error('Photo save error:', err);
+      }
+    }
+  };
 
   const sizeClasses = {
     sm: 'w-10 h-10',
@@ -46,18 +85,26 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
 
   return (
     <>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileChange}
+        className="hidden"
+      />
+
       <div className={`relative inline-block group ${className}`}>
         {/* Outer Glow Ring */}
         <div className="absolute -inset-1.5 rounded-2xl bg-gradient-to-r from-cyan-500/40 via-blue-500/30 to-indigo-500/40 blur-md opacity-80 group-hover:opacity-100 transition duration-500" />
 
-        {/* Avatar Frame - Pure display, no upload controls */}
+        {/* Avatar Frame */}
         <div 
-          onClick={() => interactive && setModalOpen(true)}
+          onClick={handleAvatarClick}
           className={`relative ${sizeClasses} rounded-2xl overflow-hidden border-2 border-cyan-400/60 bg-[#0066d6] shadow-2xl ${
             interactive ? 'cursor-pointer' : ''
           }`}
         >
-          {photoSrc && !imgLoadError ? (
+          {!imgLoadError ? (
             <img
               src={photoSrc}
               alt="សុផា បញ្ញា (Sopha Panha)"
@@ -66,7 +113,6 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
               className="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
             />
           ) : (
-            /* High-fidelity official portrait */
             <SophaPanhaPortrait className="w-full h-full object-cover" />
           )}
 
@@ -74,7 +120,7 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
           {interactive && (
             <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white text-xs font-semibold backdrop-blur-[2px]">
               <ZoomIn className="w-4 h-4 text-cyan-300" />
-              <span>{lang === 'km' ? 'មើលរូបភាព' : 'View Portrait'}</span>
+              <span>{lang === 'km' ? 'មើល / ដាក់រូប' : 'View / Set Photo'}</span>
             </div>
           )}
         </div>
@@ -90,7 +136,7 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
         )}
       </div>
 
-      {/* Full-Screen Portrait View Modal - Clean View-Only, No Upload Buttons */}
+      {/* Full-Screen Portrait View Modal */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
           <div className="relative w-full max-w-lg rounded-2xl border border-white/10 bg-[#0d1322] shadow-2xl p-6 space-y-5">
@@ -116,7 +162,7 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
 
             {/* High-Resolution Portrait Display */}
             <div className="relative w-full aspect-[3/4] max-h-[380px] rounded-xl overflow-hidden border border-white/10 shadow-2xl bg-[#0066d6] flex items-center justify-center">
-              {photoSrc && !imgLoadError ? (
+              {!imgLoadError ? (
                 <img
                   src={photoSrc}
                   alt="សុផា បញ្ញា (Sopha Panha)"

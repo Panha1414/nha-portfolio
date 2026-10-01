@@ -17,10 +17,58 @@ import { InteractiveMapModal } from './components/simulators/InteractiveMapModal
 import { EcommerceModal } from './components/simulators/EcommerceModal';
 import { MoonlightDesignModal } from './components/simulators/MoonlightDesignModal';
 import { ResumeModal } from './components/ResumeModal';
+import { compressImageFile, savePhoto } from './utils/photoStorage';
 
 export default function App() {
   const [lang, setLang] = useState<Language>('km');
   const [activeModal, setActiveModal] = useState<string | null>(null);
+
+  // Drag & drop or paste image anywhere to automatically set real photo
+  useEffect(() => {
+    const handleFile = async (file: File) => {
+      if (!file.type.startsWith('image/')) return;
+      try {
+        const compressed = await compressImageFile(file, 800, 0.85);
+        await savePhoto(compressed);
+      } catch (err) {
+        console.error('Error saving photo:', err);
+      }
+    };
+
+    const handleDrop = (e: DragEvent) => {
+      e.preventDefault();
+      const file = e.dataTransfer?.files?.[0];
+      if (file) handleFile(file);
+    };
+
+    const handleDragOver = (e: DragEvent) => {
+      e.preventDefault();
+    };
+
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.startsWith('image/')) {
+          const file = items[i].getAsFile();
+          if (file) {
+            handleFile(file);
+            break;
+          }
+        }
+      }
+    };
+
+    window.addEventListener('drop', handleDrop);
+    window.addEventListener('dragover', handleDragOver);
+    window.addEventListener('paste', handlePaste);
+
+    return () => {
+      window.removeEventListener('drop', handleDrop);
+      window.removeEventListener('dragover', handleDragOver);
+      window.removeEventListener('paste', handlePaste);
+    };
+  }, []);
 
   // Close modals on Escape key
   useEffect(() => {
