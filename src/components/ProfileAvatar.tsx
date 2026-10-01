@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, ZoomIn, Check, Upload, UserCheck, ShieldCheck, Lock } from 'lucide-react';
+import { Camera, ZoomIn, Check, Upload, UserCheck, Lock, Loader2 } from 'lucide-react';
 import { Language } from '../types/portfolio';
 import { PERSONAL_INFO } from '../data/portfolioData';
-import { getStoredPhoto, saveOwnerPhoto, logoutOwner } from '../utils/ownerAuth';
+import { compressImageFile, savePhoto, loadPhoto } from '../utils/photoStorage';
 
 interface ProfileAvatarProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
@@ -26,34 +26,65 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
   onLogoutOwner
 }) => {
   const [photoSrc, setPhotoSrc] = useState<string>('/10076_SOPHAPANHA.jpg');
+  const [hasCustomPhoto, setHasCustomPhoto] = useState<boolean>(false);
   const [imageError, setImageError] = useState<boolean>(false);
   const [modalOpen, setModalOpen] = useState<boolean>(false);
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load real photo if saved by owner
+  // Load photo on mount
   useEffect(() => {
-    const saved = getStoredPhoto();
-    if (saved) {
-      setPhotoSrc(saved);
-      setImageError(false);
-    }
+    let isMounted = true;
+    loadPhoto().then((saved) => {
+      if (isMounted && saved) {
+        setPhotoSrc(saved);
+        setHasCustomPhoto(true);
+        setImageError(false);
+      }
+    });
+
+    const handleUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      if (customEvent.detail) {
+        setPhotoSrc(customEvent.detail);
+        setHasCustomPhoto(true);
+        setImageError(false);
+      }
+    };
+
+    window.addEventListener('sopha-photo-updated', handleUpdate);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('sopha-photo-updated', handleUpdate);
+    };
   }, []);
 
-  const handleOwnerFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!isOwner) return; // Strict safety check
+  const handleProcessFile = async (file: File) => {
+    try {
+      setIsProcessing(true);
+      const compressed = await compressImageFile(file, 800, 0.85);
+      await savePhoto(compressed);
+      setPhotoSrc(compressed);
+      setHasCustomPhoto(true);
+      setImageError(false);
+    } catch (err) {
+      console.error('Error handling photo file:', err);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const result = event.target?.result as string;
-        if (result) {
-          setPhotoSrc(result);
-          setImageError(false);
-          saveOwnerPhoto(result);
-        }
-      };
-      reader.readAsDataURL(file);
+      handleProcessFile(file);
     }
+  };
+
+  const handleAvatarFrameClick = () => {
+    if (!interactive) return;
+    // If no custom photo yet or user is owner, give option to upload/view
+    setModalOpen(true);
   };
 
   const handleBadgeClick = (e: React.MouseEvent) => {
@@ -78,17 +109,26 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
 
         {/* Avatar Frame */}
         <div 
-          onClick={() => interactive && setModalOpen(true)}
+          onClick={handleAvatarFrameClick}
           className={`relative ${sizeClasses} rounded-2xl overflow-hidden border-2 border-cyan-400/60 bg-[#0066d6] shadow-2xl ${
             interactive ? 'cursor-pointer' : ''
           }`}
         >
-          {!imageError ? (
+          {isProcessing ? (
+            <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 text-cyan-300 gap-2">
+              <Loader2 className="w-6 h-6 animate-spin" />
+              <span className="text-[10px] font-mono">Compressing...</span>
+            </div>
+          ) : !imageError ? (
             <img
               src={photoSrc}
               alt="សុផា បញ្ញា (Sopha Panha)"
               referrerPolicy="no-referrer"
-              onError={() => setImageError(true)}
+              onError={() => {
+                if (!hasCustomPhoto) {
+                  setImageError(true);
+                }
+              }}
               className="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
             />
           ) : (
@@ -113,12 +153,12 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
           {interactive && (
             <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white text-xs font-semibold backdrop-blur-[2px]">
               <ZoomIn className="w-4 h-4 text-cyan-300" />
-              <span>{lang === 'km' ? 'មើលរូបភាព' : 'View Portrait'}</span>
+              <span>{lang === 'km' ? 'មើល / ដាក់រូប' : 'View / Set Photo'}</span>
             </div>
           )}
         </div>
 
-        {/* Student ID & Verification Badge (Clickable to trigger Owner Login if not owner) */}
+        {/* Student ID & Verification Badge */}
         {showBadge && (
           <button
             type="button"
@@ -128,7 +168,7 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
                 ? 'bg-amber-500 text-slate-950 border-amber-300 ring-2 ring-amber-400/30'
                 : 'bg-slate-900 text-cyan-300 border-cyan-500/50 hover:bg-slate-800'
             }`}
-            title={isOwner ? 'Owner Mode Active' : 'Student ID: 10076 (Owner Login)'}
+            title={isOwner ? 'Owner Mode Active' : 'Student ID: 10076 (Click to unlock Owner Mode)'}
           >
             <span className={`w-2 h-2 rounded-full ${isOwner ? 'bg-slate-950' : 'bg-emerald-400 animate-pulse'}`} />
             <span>{isOwner ? 'OWNER' : 'ID: 10076'}</span>
@@ -136,16 +176,14 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
         )}
       </div>
 
-      {/* Hidden File Input strictly for authenticated owner only */}
-      {isOwner && (
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleOwnerFileUpload}
-          className="hidden"
-        />
-      )}
+      {/* Hidden File Input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileChange}
+        className="hidden"
+      />
 
       {/* Full-Screen Portrait View Modal */}
       {modalOpen && (
@@ -157,7 +195,7 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
               <div>
                 <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
                   <UserCheck className="w-5 h-5 text-cyan-400" />
-                  <span>{lang === 'km' ? 'រូបថតផ្លូវការរបស់ សុផា បញ្ញា' : 'Official Portrait: Sopha Panha'}</span>
+                  <span>{lang === 'km' ? 'រូបថតពិតរបស់ សុផា បញ្ញា' : 'Official Portrait: Sopha Panha'}</span>
                 </h3>
                 <p className="text-xs text-cyan-400 font-mono mt-0.5">
                   ID: 10076 · National Chea Sim University of Kamchaymear
@@ -171,15 +209,30 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
               </button>
             </div>
 
-            {/* High-Resolution Portrait Display */}
+            {/* High-Resolution Portrait Display or Upload Prompt */}
             <div className="relative w-full aspect-[3/4] max-h-[380px] rounded-xl overflow-hidden border border-white/10 shadow-2xl bg-[#0066d6] flex items-center justify-center">
-              <img
-                src={photoSrc}
-                alt="សុផា បញ្ញា (Sopha Panha)"
-                referrerPolicy="no-referrer"
-                onError={() => setImageError(true)}
-                className="w-full h-full object-cover object-top"
-              />
+              {!imageError ? (
+                <img
+                  src={photoSrc}
+                  alt="សុផា បញ្ញា (Sopha Panha)"
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover object-top"
+                />
+              ) : (
+                <div className="p-6 text-center space-y-3">
+                  <div className="w-14 h-14 mx-auto rounded-full bg-cyan-500/20 text-cyan-300 flex items-center justify-center">
+                    <Camera className="w-7 h-7" />
+                  </div>
+                  <div className="text-white font-bold text-sm">
+                    {lang === 'km' ? 'សូមជ្រើសរើសរូបថត 10076_SOPHAPANHA.jpg' : 'Please select 10076_SOPHAPANHA.jpg'}
+                  </div>
+                  <p className="text-xs text-slate-300 max-w-xs mx-auto leading-relaxed">
+                    {lang === 'km'
+                      ? 'ចុចប៊ូតុងខាងក្រោមដើម្បីជ្រើសរើសរូបថតពិតរបស់អ្នកពីទូរស័ព្ទ ឬកុំព្យូទ័រ'
+                      : 'Click the button below to pick your original photo file.'}
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Official Credentials */}
@@ -198,45 +251,30 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
               </div>
             </div>
 
-            {/* Footer Actions: Strictly separated by Owner vs Public Visitor */}
+            {/* Action Bar */}
             <div className="pt-2 border-t border-white/10 flex flex-wrap items-center justify-between gap-3">
-              {isOwner ? (
-                /* Authenticated Owner Controls */
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-bold text-xs transition-all shadow-md"
-                  >
-                    <Upload className="w-3.5 h-3.5" />
-                    <span>{lang === 'km' ? 'ប្តូររូបថតថ្មី (Upload Real Photo)' : 'Replace Photo'}</span>
-                  </button>
-
-                  {onLogoutOwner && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onLogoutOwner();
-                        setModalOpen(false);
-                      }}
-                      className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition-colors"
-                      title="Lock Owner Mode"
-                    >
-                      {lang === 'km' ? 'ចាកចេញពី Owner' : 'Lock'}
-                    </button>
-                  )}
-                </div>
-              ) : (
-                /* Public Visitor Notice (No upload capabilities) */
-                <div className="text-xs text-slate-500 font-mono flex items-center gap-1.5">
-                  <Lock className="w-3.5 h-3.5 text-slate-600" />
-                  <span>{lang === 'km' ? 'រូបភាពផ្លូវការ (ការពារសុវត្ថិភាព)' : 'Official Verified Profile'}</span>
-                </div>
-              )}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isProcessing}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-bold text-xs sm:text-sm transition-all shadow-md cursor-pointer disabled:opacity-50"
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>{lang === 'km' ? 'កំពុងដំណើរការ...' : 'Processing...'}</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4" />
+                    <span>{lang === 'km' ? 'ជ្រើសរើសរូបថតពិត (10076_SOPHAPANHA.jpg)' : 'Select 10076_SOPHAPANHA.jpg'}</span>
+                  </>
+                )}
+              </button>
 
               <button
                 onClick={() => setModalOpen(false)}
-                className="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors ml-auto"
+                className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors ml-auto"
               >
                 {lang === 'km' ? 'បិទ' : 'Close'}
               </button>

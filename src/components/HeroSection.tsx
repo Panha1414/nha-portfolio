@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Language } from '../types/portfolio';
 import { HERO_CONTENT, PERSONAL_INFO } from '../data/portfolioData';
-import { ArrowDown, Bot, Terminal, MapPin, GraduationCap, Sparkles, Send, CheckCircle2, Camera, Upload } from 'lucide-react';
+import { ArrowDown, Bot, Terminal, MapPin, GraduationCap, Sparkles, Send, CheckCircle2, Camera, Upload, Loader2, Check } from 'lucide-react';
 import { ProfileAvatar } from './ProfileAvatar';
+import { compressImageFile, savePhoto } from '../utils/photoStorage';
 
 interface HeroSectionProps {
   lang: Language;
@@ -21,6 +22,25 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   onOpenOwnerLogin,
   onLogoutOwner
 }) => {
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+
+  const handlePhotoFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setUploadingPhoto(true);
+      const compressed = await compressImageFile(file, 800, 0.85);
+      await savePhoto(compressed);
+      setUploadSuccess(true);
+      setTimeout(() => setUploadSuccess(false), 4000);
+    } catch (err) {
+      console.error('Failed to process and save photo:', err);
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
   const [activeTab, setActiveTab] = useState<'bot' | 'food' | 'code'>('bot');
   const [interactiveInput, setInteractiveInput] = useState('');
   const [simulatedMessages, setSimulatedMessages] = useState<Array<{ sender: 'user' | 'bot'; text: string; time: string }>>([
@@ -131,29 +151,28 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                   <span className="text-slate-500">CS Department · NCHSUK</span>
 
                   {/* Immediate 1-Click Real Photo Selector for Sopha Panha */}
-                  <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-400/40 transition-all font-sans text-xs font-semibold shadow-sm">
-                    <Camera className="w-3.5 h-3.5 text-cyan-300" />
-                    <span>{lang === 'km' ? '📷 ដាក់រូបថតពិត (ជ្រើសរើស 10076_SOPHAPANHA.jpg)' : '📷 Set Real Photo (10076_SOPHAPANHA.jpg)'}</span>
+                  <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/25 hover:bg-cyan-500/35 text-cyan-200 border border-cyan-400/50 transition-all font-sans text-xs font-semibold shadow-md active:scale-95">
+                    {uploadingPhoto ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-300" />
+                        <span>{lang === 'km' ? 'កំពុងបញ្ចូលរូបថត...' : 'Saving Photo...'}</span>
+                      </>
+                    ) : uploadSuccess ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        <span className="text-emerald-300">{lang === 'km' ? 'បានបញ្ចូលរូបថតជោគជ័យ!' : 'Photo Saved!'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Camera className="w-3.5 h-3.5 text-cyan-300" />
+                        <span>{lang === 'km' ? '📷 ដាក់រូបថតពិត (ជ្រើសរើស 10076_SOPHAPANHA.jpg)' : '📷 Set Real Photo (10076_SOPHAPANHA.jpg)'}</span>
+                      </>
+                    )}
                     <input
                       type="file"
                       accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          const reader = new FileReader();
-                          reader.onload = (event) => {
-                            const res = event.target?.result as string;
-                            if (res) {
-                              try {
-                                localStorage.setItem('panha_real_photo', res);
-                                localStorage.setItem('sopha_owner_auth', 'verified_owner_panha_10076');
-                                window.location.reload();
-                              } catch {}
-                            }
-                          };
-                          reader.readAsDataURL(file);
-                        }
-                      }}
+                      disabled={uploadingPhoto}
+                      onChange={handlePhotoFileSelected}
                       className="hidden"
                     />
                   </label>
